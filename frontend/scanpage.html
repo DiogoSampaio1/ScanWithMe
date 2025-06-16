@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScanWithMe - Scan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="src/css/mainCss.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="src/image/favicon.png">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body>
+
+  <header>
+    <div class="cont-left-side-header">
+      <div class="icon-menu-and-sidebar">
+        <div class="menu" id="menu-burguer" onclick="openSidebar()"><i id="ham-men" class="fa-solid fa-bars"></i></div>
+        <aside class="nav" id="nav">
+          <a href="src/components/Produtos.html"><i class="fa-solid fa-box-open"></i> Produtos</a>
+          <a href="src/components/Classes.html"><i class="fa-solid fa-tags"></i>Classes</a>
+          <a href="src/components/Localizacao.html"><i class="fa-solid fa-house"></i> Localização</a>
+          <a href="src/components/Utilizadores.html"><i class="fa-solid fa-user"></i> Utilizadores</a>
+          <a href="" class="focus"><i class="fa-solid fa-barcode"></i> Scan</a>
+          <a href="src/components/Login.html" onclick="logout()"><i id="log-icon"></i> <span id="log-info"></span></a>
+        </aside>
+      </div>
+      <div class="tittle">ScanWithMe | Scan</div>
+    </div>
+    <div class="cont-right-side-header">
+      <div class="user" id="user-name"></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1>Leitor de Código de Barras</h1>
+    <button onclick="iniciarScanner()" class="camera-btn"><i class="fa-solid fa-camera"></i> Usar Câmera</button>
+    <button onclick="openDialog()" class="add-pr-btn">Criar produto manualmente</button>
+    <div id="reader" style="display:none;"></div>
+    <!-- Campo invisível para o leitor USB -->
+    <input type="text" id="usb-scanner" placeholder="Escaneie com leitor USB" style="position: absolute; width: 1px; height: 1px; opacity: 0;" autofocus>
+    <div id="resultado">
+      <h2>Informação do(s) produto(s):</h2>
+      <div id="content"></div></div>
+  </div>
+
+  <!-- dialog -->
+  <div id="form-add" class="dialog-container" style="display:none;">
+    <div class="dialog-box">
+      <h1>Adicionar novo produto</h1>
+      <input type="text" id="newCode" placeholder="Código do produto" autocomplete="off">
+      <input type="text" id="newName" placeholder="Nome do produto" autocomplete="off">
+      <input type="text" id="newClass" list="class-list" placeholder="Classe do produto" autocomplete="off">
+      <datalist id="class-list"></datalist>
+      <input type="text" id="newLocation" list="location-list" placeholder="Localização do produto" autocomplete="off">
+      <datalist id="location-list"></datalist>
+      <input type="number" min="0" max="5" value="1" id="placeAmount" placeholder="Quantidade do produto" autocomplete="off">
+      <div class="amount-btns">
+        <button onclick="alterarQuantia(-1)">-</button>
+        <button onclick="alterarQuantia(1)">+</button>
+      </div>
+      <div class="btns">
+        <button onclick="closeDialog()">Cancelar</button>
+        <button onclick="adicionarProduto()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edidt Dialog -->
+  <div class="edit-alert" id="edit-alert" style="display: none;">
+    <div class="edit-alert-box">
+      <h1>Editar:</h1>
+      <input type="text" id="editLocation" list="location-list" placeholder="Localização" autocomplete="off">
+      <datalist id="location-list"></datalist>
+      <input type="number" min="0" max="5" id="editAmount" placeholder="Quantidade do produto" autocomplete="off">
+      <div class="amount-btns">
+        <button onclick="alterarEditQuantia(-1)">-</button>
+        <button onclick="alterarEditQuantia(1)">+</button>
+      </div>
+      <div class="btn">
+        <button onclick="closeEditDialog()">Cancelar</button>
+        <button onclick="confirmOk()" id="edit-confirm-btn">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert" id="alert" style="display: none;">
+    <div class="alert-box">
+      <h1>Houve um problema:</h1>
+      <span id="alert-message"></span>
+      <div class="btn">
+        <button onclick="closeAlert()">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/script/mainScript.js"></script>
+  <script src="scripts.js"></script>
+
+</body>
+</html>

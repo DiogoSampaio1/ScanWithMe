@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="../css/mainCss.css">
+  <link rel="shortcut icon" href="../image/favicon.png">
+  <title>ScanWithMe - Produtos</title>
+</head>
+<body>
+
+  <header>
+    <div class="cont-left-side-header">
+      <div class="icon-menu-and-sidebar">
+        <div class="menu" id="menu-burguer" onclick="openSidebar()"><i id="ham-men" class="fa-solid fa-bars"></i></div>
+        <aside class="nav" id="nav">
+          <a href="" class="focus"><i class="fa-solid fa-box-open"></i> Produtos</a>
+          <a href="Classes.html"><i class="fa-solid fa-tags"></i>Classes</a>
+          <a href="Localizacao.html"><i class="fa-solid fa-house"></i> Localização</a>
+          <a href="Utilizadores.html"><i class="fa-solid fa-user"></i> Utilizadores</a>
+          <a href="../../scanpage.html"><i class="fa-solid fa-barcode"></i> Scan</a>
+          <a href="Login.html" onclick="logout()"><i id="log-icon"></i> <span id="log-info"></span></a>
+        </aside>
+      </div>
+      <div class="tittle">ScanWithMe | Produtos</div>
+    </div>
+    <div class="cont-right-side-header">
+      <div class="user" id="user-name"></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <a href="../../scanpage.html"><button class="add-pr-btn">+ ADICIONAR PRODUTO</button></a>
+    <div class="searchbar">
+      <label>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="searchbar" autocomplete="off" maxlength="75">
+      </label>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="display: none;">Id</th>
+          <th>Código</th>
+          <th>Nome do Produto</th>
+          <th>Classe</th>
+          <th>Localização</th>
+          <th>Quantidade</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="items-table">
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Confirm Alert -->
+  <div class="confirm-alert" id="confirm-alert" style="display: none;">
+    <div class="confirm-alert-box">
+      <h1>Alerta!</h1>
+      <span id="confirm-message"></span>
+      <div class="btn">
+        <button onclick="closeAlertConfirm()">Cancelar</button>
+        <button onclick="confirmOk()">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edidt Dialog -->
+  <div class="edit-alert" id="edit-alert" style="display: none;">
+    <div class="edit-alert-box">
+      <h1>Editar:</h1>
+      <input type="text" id="editName" placeholder="Nome do produto" autocomplete="off">
+      <input type="text" id="editClass" list="class-list" placeholder="Classe do produto" autocomplete="off">
+      <datalist id="class-list"></datalist>
+      <input type="text" id="editLocation" list="location-list" placeholder="Localização" autocomplete="off">
+      <datalist id="location-list"></datalist>
+      <input type="number" min="0" max="5" id="editAmount" placeholder="Quantidade do produto" autocomplete="off">
+      <div class="amount-btns">
+        <button onclick="alterarQuantia(-1)">-</button>
+        <button onclick="alterarQuantia(1)">+</button>
+      </div>
+      <div class="btn">
+        <button onclick="closeEditDialog()">Cancelar</button>
+        <button onclick="confirmOk()" id="edit-confirm-btn">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert" id="alert" style="display: none;">
+    <div class="alert-box">
+      <h1>Houve um problema:</h1>
+      <span id="alert-message"></span>
+      <div class="btn">
+        <button onclick="closeAlert()">Ok</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast -->
+  <div id="toast-container" class="toast"></div>
+
+  <!-- Main Script -->
+  <script src="../script/mainScript.js"></script>
+
+  <!-- Own Script -->
+  <script>
+    const user = localStorage.getItem('ist_number');
+    const logInfo = document.getElementById('log-info');
+    let icon = document.getElementById('log-icon');
+    let allProducts = []; 
+    let currentEditCode = null;
+    let confirmCallback = null;
+      
+
+    if(user) {
+      logInfo.textContent = "Logout";
+      icon.innerHTML = '<i class="fa-solid fa-arrow-right-from-bracket"></i>'
+    } else {
+      logInfo.textContent = "Login";
+      icon.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i>';
+    }
+
+    document.getElementById('editAmount').addEventListener('keypress', function(event) {
+      if (!/[0-9,.]/.test(event.key)) {
+        event.preventDefault();
+      }
+    });
+
+    document.getElementById('editAmount').addEventListener('keypress', function(event) {
+      if (event.key < "0" || event.key > "9") {
+        event.preventDefault();
+      }
+    });
+
+    document.getElementById('editAmount').addEventListener('input', function() {
+      if (this.value.length > 5) {
+          this.value = this.value.slice(0, 5);
+      }
+    });
+
+    document.getElementById('editName').addEventListener('input', function() {
+      if(this.value.length > 30) {
+        this.value = this.value.slice(0, 30);
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+       fetch(`${URL}/products`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          allProducts = data;
+          renderTable(allProducts);
+
+            document.getElementById('items-table').addEventListener('click', (e) => {
+              if (e.target.classList.contains('delete-icon')) {
+                const row = e.target.closest('tr');
+                const productId = row.children[0].textContent;
+                const productName = row.children[2].textContent;
+                const productRoom = row.children[4].textContent;
+
+                showAlertConfirm(`Deseja deletar o produto "${productName}" que está na "${productRoom}"?`, () => {
+                  fetch(`${URL}/products?product_id=${encodeURIComponent(productId)}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                    if (data.message) {
+                      showToast(data.message, 'success');
+                    } else {
+                      showAlert(data.error || "Erro desconhecido", 'error');
+                    }
+
+                    return fetch(`${URL}/products`);
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                    allProducts = data;
+                    renderTable(allProducts);
+                  })
+                  .catch(error => {
+                    console.error('Erro ao deletar:', error);
+                    showAlert("Erro ao deletar produto.", 'error');
+                  });
+                });
+              }
+
+            if (e.target.classList.contains('edit-icon')) {
+              const row = e.target.closest('tr');
+              const producId = row.children[0].textContent;
+              currentEditId = producId;
+              currentEditCode = row.children[1].textContent;
+              const name = row.children[2].textContent;
+              const prodClass = row.children[3].textContent;
+              const location = row.children[4].textContent;
+              const amount = row.children[5].textContent;
+              
+              // Preencher os inputs
+              document.getElementById('editName').value = name;
+              document.getElementById('editClass').value = prodClass;
+              document.getElementById('editAmount').value = amount;
+              document.getElementById('editLocation').value = location;
+
+              document.getElementById('edit-alert').style.display = 'block';
+            }
+          });
+
+          document.getElementById('edit-confirm-btn').addEventListener('click', () => {
+            const updatedName = document.getElementById('editName').value.trim();
+            const updatedClass = document.getElementById('editClass').value.trim();
+            const updatedAmount = parseInt(document.getElementById('editAmount').value);
+            const updatedRoomName = document.getElementById('editLocation').value.trim();
+
+            // Validação dos campos antes do envio
+            if (!updatedName || !updatedClass || !updatedRoomName || isNaN(updatedAmount)) {
+              showAlert("Preencha todos os campos corretamente.");
+              return;
+            }
+
+            const payload = {
+              product_id: currentEditId,
+              product_code: currentEditCode,
+              product_name: updatedName,
+              class_name: updatedClass,
+              room_name: updatedRoomName,
+              product_amount: updatedAmount
+            };
+
+            fetch(`${URL}/products`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                 headers: getAuthHeaders()
+              },
+              body: JSON.stringify(payload)
+            })
+              .then(res => res.json())
+              .then(data => {
+                if (data.error) {
+                  showAlert(data.error);
+                  return;
+                } else {
+                  showToast('Produto atualizado!');
+                }
+
+                closeEditDialog();
+
+                // Recarrega a tabela
+                return fetch(`${URL}/products`)
+                  .then(res => res.json())
+                  .then(data => {
+                    allProducts = data;
+                    renderTable(allProducts);
+                    document.getElementById('searchbar').value = '';
+                  });
+              })
+              .catch(err => {
+                console.error(err);
+                showAlert("Erro ao atualizar produto");
+              });
+          });
+        })
+        .catch(error => {
+          console.error('Erro:', error)
+          showAlert("Erro ao carregar produtos")
+        });
+    });
+
+    function renderTable(products) {
+      const tableBody = document.getElementById('items-table');
+      tableBody.innerHTML = '';
+
+      products.forEach(product => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td data-label="ID" style="display: none;">${product.product_id}</td>
+          <td data-label="Código">${product.product_code}</td>
+          <td data-label="Nome do Produto">${product.product_name}</td>
+          <td data-label="Classe">${product.class_name}</td>
+          <td data-label="Localização">${product.room_name}</td>
+          <td data-label="Quantidade">${product.product_amount}</td>
+          <td data-label="Ações">
+            <div class="actions">
+              <i class="fa-solid fa-pencil edit-icon" style="cursor: pointer;"></i>
+              <i class="fa-solid fa-trash delete-icon" style="cursor: pointer;"></i>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      }); 
+    }
+
+    function closeEditDialog() {
+      document.getElementById('edit-alert').style.display = 'none';
+      currentEditCode = null;
+    }
+
+    function showAlert(message) {
+      document.getElementById('alert-message').textContent = message;
+      document.getElementById('alert').style.display = 'block';
+    }
+
+    function closeAlert(){
+      document.getElementById('alert').style.display = 'none';
+    }
+
+    function showAlertConfirm(message, callback){
+      document.getElementById('confirm-message').textContent = message;
+      document.getElementById('confirm-alert').style.display = 'block';
+      confirmCallback = callback;
+    }
+
+    function closeAlertConfirm(){
+      document.getElementById('confirm-alert').style.display = 'none';
+      confirmCallback = null;
+    }
+
+    function confirmOk(){
+      if (confirmCallback) {
+        confirmCallback();
+      }
+      closeAlertConfirm();
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+
+      const container = document.getElementById('toast-container');
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 3000);
+
+      setTimeout(() => {
+        toast.remove();
+      }, 3500);
+    }
+
+    function alterarQuantia(delta){
+      const input = document.getElementById('editAmount');
+      let valorAtual = parseInt(input.value, 10) || 0;
+      let novoValor = valorAtual + delta;
+
+      if(novoValor < 0) novoValor = 0
+      input.value = novoValor;
+    }
+
+    function carregarLocalizacoes() {
+      fetch(`${URL}/room`)
+        .then(response => response.json())
+        .then(data => {
+          const datalist = document.getElementById('location-list');
+          datalist.innerHTML = ''; // limpa opções anteriores
+          const nomesUnicos = [...new Set(data.map(room => room.room_name))].sort((a, b) => a.localeCompare(b));
+          nomesUnicos.forEach(nome => {
+            const option = document.createElement('option');
+            option.value = nome;
+            datalist.appendChild(option);
+          });
+        })
+        .catch(error => {
+          console.error('Erro ao carregar localizações:', error);
+        });
+    }
+
+    function carregarClasses() {
+      fetch(`${URL}/class`)
+        .then(response => response.json())
+        .then(data => {
+          const datalist = document.getElementById('class-list');
+          datalist.innerHTML = ''; // limpa opções anteriores
+          const nomesUnicos = [...new Set(data.map(classes => classes.class_name))].sort((a, b) => a.localeCompare(b));
+          nomesUnicos.forEach(nome => {
+            const option = document.createElement('option');
+            option.value = nome;
+            datalist.appendChild(option);
+          });
+        })
+        .catch(error => {
+          console.error('Erro ao carregar localizações:', error);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarLocalizacoes();
+      carregarClasses();
+    });
+
+    document.getElementById("searchbar").addEventListener("input", (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const filtered = allProducts.filter(p =>
+        p.product_name.toLowerCase().includes(searchTerm) ||
+        p.product_code.toLowerCase().includes(searchTerm) ||
+        p.class_name.toLowerCase().includes(searchTerm) ||
+        p.room_name.toLowerCase().includes(searchTerm)
+      );
+      renderTable(filtered);
+    });
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('ist_number');
+      window.location = 'Login.html';
+    }
+  </script>
+
+  <!-- CSS -->
+<style>
+.container {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -45%);
+  width: 70%;
+  height: 80vh;
+  z-index: 0;
+}
+
+.container > a{
+  position: relative;
+  align-self: self-end;
+}
+
+.add-pr-btn{
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.1rem;
+  background-color: rgb(40, 132, 224);
+  color: #fff;
+  cursor: pointer;
+  transition: .3s ease;
+  margin-bottom: 16px;
+}
+
+.add-pr-btn:hover{
+  background-color: rgb(37, 122, 206);
+}
+
+.searchbar {
+  border-bottom: 1px solid #fff;
+  background-color: #1f1f1f9d;
+  padding: 10px 20px;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  transition: .3s ease;
+}
+
+.searchbar:hover {
+  background-color: #2c2c2c8c;
+}
+
+.searchbar:has(input:focus) {
+  background-color: #2e2e2e;
+}
+
+label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.searchbar input {
+  width: 100%;
+  color: #ccc;
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  padding: 10px;
+  outline: none;
+}
+
+.searchbar i {
+  color: #ccc;
+  cursor: text;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}
+
+table {
+  background-color: var(--sec-bg);
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+}
+
+td, th {
+  padding: 15px;
+  text-align: center;
+}
+
+td {
+  border-top: 1px solid #cccccc70;
+}
+
+.actions{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    height: auto;
+    top: 10%;
+    transform: translateX(-50%);
+  }
+
+  .searchbar {
+    margin-bottom: 10px;
+  }
+
+  .searchbar input {
+    font-size: 1em;
+  }
+
+  .actions{
+    justify-content: flex-end;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tr {
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    padding: 10px;
+  }
+
+  td {
+    text-align: right;
+    position: relative;
+    padding-left: 50%;
+  }
+
+  td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 15px;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: bold;
+  }
+}
+
+.confirm-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.confirm-alert-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.confirm-alert .btn {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.confirm-alert .btn button {
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.confirm-alert-box .btn button:hover {
+  background-color: #2c2c2c8c;
+}
+/* ========= */
+
+/* Alert */
+.alert{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.alert-box{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.alert-box .btn{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alert-box .btn button{
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.alert-box .btn button:hover{
+  background-color: #2c2c2c8c;
+}
+
+/* Edit Dialog */
+.edit-alert{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.edit-alert-box{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.edit-alert-box .btn{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-alert-box input {
+  color: #ccc;
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  padding: 10px;
+  appearance: textfield;
+  outline: none;
+  transition: .3s ease;
+  border-bottom: 1px solid #fff;
+  border-radius: 5px 5px 0 0 ;
+}
+
+.edit-alert-box input:hover{
+  background-color: #2c2c2c8c;
+}
+
+.edit-alert-box input:focus {
+  background-color: #333;
+}
+
+.edit-alert-box .btn button{
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.edit-alert-box .btn button:hover{
+  background-color: #2c2c2c8c;
+}
+
+.amount-btns{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.amount-btns button{
+  padding: 12px 24px;
+  font-size: 16px;
+  background-color: #007bff;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  width: 200px;
+  margin-bottom: 20px;
+  transition: .3s ease;
+}
+
+.amount-btns button:hover{
+  background-color: #0056b3;
+}
+/* ========= */
+
+/* Toast Notification */
+#toast-container {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  pointer-events: none;
+  flex-direction: column-reverse;
+  gap: 10px;
+  z-index: 9999;
+}
+
+.toast {
+  min-width: 250px;
+  color: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.5s ease;
+}
+
+.toast.success {
+  background-color: #28a745;
+}
+
+.toast.error {
+  background-color: #ff0000;
+}
+
+@media (min-width: 360px) and (max-width: 768px){
+  .alert-box, .confirm-alert-box, .edit-alert-box{
+    width: 300px;
+  }
+
+  .amount-btns{
+    flex-direction: column-reverse;
+  }
+}
+  </style>
+
+</body>
+</html>

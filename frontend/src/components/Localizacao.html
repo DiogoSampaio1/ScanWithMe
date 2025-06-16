@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="shortcut icon" href="../image/favicon.png">
+    <link rel="stylesheet" href="../css/mainCss.css">
+    <title>ScanWithMe - Localização</title>
+</head>
+<body>
+  <header>
+    <div class="cont-left-side-header">
+      <div class="icon-menu-and-sidebar">
+        <div class="menu" id="menu-burguer" onclick="openSidebar()"><i id="ham-men" class="fa-solid fa-bars"></i></div>
+        <aside class="nav" id="nav">
+          <a href="Produtos.html"><i class="fa-solid fa-box-open"></i> Produtos</a>
+          <a href="Classes.html"><i class="fa-solid fa-tags"></i>Classes</a>
+          <a href="" class="focus"><i class="fa-solid fa-house"></i> Localização</a>
+          <a href="Utilizadores.html"><i class="fa-solid fa-user"></i> Utilizadores</a>
+          <a href="../../scanpage.html"><i class="fa-solid fa-barcode"></i> Scan</a>
+          <a href="Login.html" onclick="logout()"><i id="log-icon"></i> <span id="log-info"></span></a>
+        </aside>
+      </div>
+      <div class="tittle">ScanWithMe | Localização</div>
+    </div>
+    <div class="cont-right-side-header">
+      <div class="user" id="user-name"></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <button class="add-nt-btn" id="add-note" onclick="openAddDialog()">+ CRIAR LOCALIZAÇÃO</button>
+    <div class="searchbar">
+      <label>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="searchbar" autocomplete="off" maxlength="25">
+      </label>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Localização</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="items-table">
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Dialog -->
+  <div id="dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h1>Criar Localização</h1>
+      <input type="text" id="roomInput" maxlength="12" placeholder="Insira o nome da Localização" autocomplete="off"/>
+      <div class="dialog-actions">
+        <button onclick="closeDialog()">Cancelar</button>
+        <button onclick="addRoom()">Criar</button>
+      </div>
+    </div>
+  </div>
+
+   <!-- Edidt Dialog -->
+   <div class="edit-alert" id="edit-alert" style="display: none;">
+    <div class="edit-alert-box">
+      <h1>Editar:</h1>
+      <input type="text" id="editLocation" placeholder="Localização" autocomplete="off">
+      <div class="btn">
+        <button onclick="closeEditDialog()">Cancelar</button>
+        <button onclick="confirmOk()" id="edit-confirm-btn">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Alert -->
+  <div class="confirm-alert" id="confirm-alert" style="display: none;">
+    <div class="confirm-alert-box">
+      <h1>Alerta!</h1>
+      <span id="confirm-message"></span>
+      <div class="btn">
+        <button onclick="closeAlertConfirm()">Cancelar</button>
+        <button>Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert" id="alert" style="display: none;">
+    <div class="alert-box">
+      <h1>Houve um problema:</h1>
+      <span id="alert-message"></span>
+      <div class="btn">
+        <button onclick="closeAlert()">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+   <div id="toast-container" class="toast"></div>
+
+<!-- Main Script -->
+  <script src="../script/mainScript.js"></script>
+
+<script>
+  const user = localStorage.getItem('ist_number');
+  const logInfo = document.getElementById('log-info');
+  let icon = document.getElementById('log-icon');
+  let inputs = document.querySelectorAll('input[type="text"]');
+  let allRooms = []; 
+  let currentEditCode = null;
+  let confirmCallback = null;
+
+  if(user) {
+    logInfo.textContent = "Logout";
+    icon.innerHTML = '<i class="fa-solid fa-arrow-right-from-bracket"></i>'
+  } else {
+    logInfo.textContent = "Login";
+    icon.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i>';
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    fetch(`${URL}/room`)
+      .then(response => response.json())
+      .then(data => {
+        allRooms = data.sort((a, b) => a.room_name.localeCompare(b.room_name));
+        renderTable(allRooms);
+
+        document.getElementById('items-table').addEventListener('click', (e) => {
+          if (e.target.classList.contains('delete-icon')) {
+            const row = e.target.closest('tr');
+            const roomName = row.children[0].textContent;
+
+            showAlertConfirm(`Deseja deletar a sala "${roomName}"?`, () => {
+              fetch(`${URL}/room?room_name=${encodeURIComponent(roomName)}`, {
+                method: 'DELETE'
+              })
+              .then(response => {
+                return response.json().then(data => ({
+                  status: response.status,
+                  ok: response.ok,
+                  body: data
+                }));
+              })
+              .then(({ status, ok, body }) => {
+                if (ok) {
+                  showToast(`Localização "${roomName}" removida com sucesso!`);
+                  return fetch(`${URL}/room`);
+                } else {
+                  showAlert(body.message || 'Erro ao deletar sala.');
+                  throw new Error(body.message); // impede o then seguinte
+                }
+              })
+              .then(response => response.json())
+              .then(data => {
+                allRooms = data.sort((a, b) => a.room_name.localeCompare(b.room_name));
+                renderTable(allRooms);
+              })
+              .catch(error => {
+                console.error('Erro ao deletar:', error);
+              });
+            });
+          }
+          if (e.target.classList.contains('edit-icon')) {
+            const row = e.target.closest('tr');
+            const location = row.children[0].textContent;
+            
+            document.getElementById('editLocation').value = location;
+            oldRoomName = location; // <<< armazenando o nome antigo
+
+            document.getElementById('edit-alert').style.display = 'block';
+            document.getElementById('editLocation').focus();
+          }
+        });
+        document.getElementById('edit-confirm-btn').addEventListener('click', () => {
+          const updatedRoomName = document.getElementById('editLocation').value.trim();
+
+          if (!updatedRoomName) {
+            showAlert("Nome da sala não pode estar vazio.");
+            return;
+          }
+
+          const payload = {
+            old_room_name: oldRoomName, // <<< nome original
+            room_name: updatedRoomName  // <<< novo nome
+          };
+
+          fetch(`${URL}/room`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          })
+          .then(res => res.json())
+          .then(data => {
+            showToast(data.message || "Atualizado com sucesso!", 'success');
+            closeEditDialog();
+            return fetch(`${URL}/room`);
+          })
+          .then(res => res.json())
+          .then(data => {
+            allRooms = data.sort((a, b) => a.room_name.localeCompare(b.room_name));
+            renderTable(allRooms);
+          })
+          .catch(err => {
+            console.error(err);
+            showToast("Erro ao atualizar sala", 'error');
+          });
+        });
+
+      })
+      .catch(error => {
+        console.error('Erro:', error);
+        showAlert("Erro ao carregar salas.");
+      });
+  });
+
+  function renderTable(room) {
+    const tableBody = document.getElementById('items-table');
+    tableBody.innerHTML = '';
+  
+    room.forEach(Rooms => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td data-label="Nome da Sala">${Rooms.room_name}</td>
+        <td data-label="Ações">
+          <div class="actions">
+            <i class="fa-solid fa-pencil edit-icon" style="cursor: pointer;"></i>
+            <i class="fa-solid fa-trash delete-icon" style="cursor: pointer;"></i>
+          </div>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  document.getElementById("searchbar").addEventListener("input", (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const filtered = allRooms.filter(p => p.room_name.toLowerCase().includes(searchTerm));
+    renderTable(filtered);
+  });
+
+  function closeEditDialog() {
+    document.getElementById('edit-alert').style.display = 'none';
+    currentEditCode = null;
+  }
+
+  function showAlert(message) {
+    document.getElementById('alert-message').textContent = message;
+    document.getElementById('alert').style.display = 'block';
+  }
+
+  function showAlertConfirm(message, callback){
+    document.getElementById('confirm-message').textContent = message;
+    document.getElementById('confirm-alert').style.display = 'block';
+    confirmCallback = callback;
+  }
+
+  document.querySelector('#confirm-alert .btn button:last-child').addEventListener('click', () => {
+    if (confirmCallback) confirmCallback();
+    closeAlertConfirm();
+  });
+
+  function closeAlert(){
+    document.getElementById('alert').style.display = 'none';
+  }
+
+  function closeAlertConfirm(){
+    document.getElementById('confirm-alert').style.display = 'none';
+    confirmCallback = null;
+  }
+
+  function openAddDialog() {
+    document.getElementById("dialog-overlay").style.display = "flex";
+    document.getElementById('roomInput').focus()
+  }
+
+  function closeDialog() {
+    document.getElementById("dialog-overlay").style.display = "none";
+    document.getElementById("roomInput").value = "";
+  }
+
+  function confirmOk(){
+    if (confirmCallback) {
+      confirmCallback();
+    }
+    closeAlertConfirm();
+  }
+
+  function addRoom() {
+    let roomName = document.getElementById("roomInput").value.trim();
+    if (roomName.length === 0) {
+        showAlert("Insira uma sala válida.");
+        return;
+    }
+
+    roomName = roomName.replace(/,/g, '.');
+
+    fetch(`${URL}/room`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ room_name: roomName })
+    })
+    .then(async response => {
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Exibe mensagem de erro no toast com estilo de erro
+        showToast(data.message || data.error || "Erro ao criar sala.", "error");
+        return;
+      }
+
+      showToast("Sala criada com sucesso!", "success");
+      return fetch(`${URL}/room`)
+        .then(response => response.json())
+        .then(data => {
+          allRooms = data.sort((a, b) => a.room_name.localeCompare(b.room_name));
+          renderTable(allRooms);
+          closeDialog();
+        });
+    })
+    .catch(error => {
+      console.error('Erro ao criar sala:', error);
+      showToast("Erro ao criar sala.", "error");
+    });
+  }
+
+  function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toast-container');
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = 1;
+      toast.style.transform = 'translateY(0)';
+    }, 100);
+
+    setTimeout(() => {
+      toast.style.opacity = 0;
+      toast.style.transform = 'translateY(100px)';
+      setTimeout(() => {
+        toast.remove();
+      }, 500);
+    }, 3000);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('ist_number');
+    window.location = 'Login.html';
+  }
+</script>
+  
+
+<style>
+/* Main Container */
+.container{
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -45%);
+  width: 1000px;
+  height: 80vh;
+  z-index: 0;
+}
+/* ========== */
+
+/* Searchbar */
+.searchbar{
+  border-bottom: 1px solid #ccc;
+  background-color: #1f1f1f9d;
+  padding: 10px 20px;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  transition: .3s ease;
+}
+
+.searchbar:hover{
+  background-color: #2c2c2c8c;
+}
+
+.searchbar:has(input:focus){
+  background-color: #2e2e2e;
+}
+
+label{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+}
+
+.searchbar input{
+  width: 100%;
+  color: #ccc;
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  padding: 10px;
+  outline: none;
+}
+
+.searchbar i{
+  color: #ccc;
+  cursor: text;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}
+
+.add-nt-btn{
+  position: relative;
+  align-self: self-end;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.1rem;
+  background-color: rgb(40, 132, 224);
+  color: #fff;
+  cursor: pointer;
+  transition: .3s ease;
+  margin-bottom: 16px;
+}
+
+.add-nt-btn:hover{
+  background-color: rgb(37, 122, 206);
+}
+
+/* ========== */
+
+table{
+  background-color: var(--sec-bg);
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+}
+
+td{
+  border-top: 1px solid #cccccc70;
+  padding: 15px;
+  text-align: left;
+}
+
+th{
+  padding: 15px;
+  text-align: left;
+}
+
+.actions{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.delete-icon{
+  align-self: center;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.dialog-box {
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 8px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dialog-box h1 {
+  color: #fff;
+}
+
+.dialog-box input {
+  color: #ccc;
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  padding: 10px;
+  outline: none;
+  transition: .3s ease;
+  border-bottom: 1px solid #fff;
+  border-radius: 5px 5px 0 0;
+}
+
+.dialog-box input:hover{
+  background-color: #2c2c2c8c;
+}
+
+.dialog-box input:focus {
+  background-color: #2c2c2c8c;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-actions button {
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.dialog-box button:hover{
+  background-color: #2c2c2c8c;
+}
+/* ========= */
+
+/* Confirm Alert */
+.confirm-alert{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.confirm-alert-box{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.confirm-alert .btn{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.confirm-alert .btn button{
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.confirm-alert-box .btn button:hover{
+  background-color: #2c2c2c8c;
+}
+/* ========= */
+
+/* Alert */
+.alert{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.alert-box{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.alert-box .btn{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alert-box .btn button{
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.alert-box .btn button:hover{
+  background-color: #2c2c2c8c;
+}
+/* ========== */
+
+.edit-alert{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.582);
+  z-index: 1000;
+}
+
+.edit-alert-box{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1f1f1f;
+  color: #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.edit-alert-box .btn{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-alert-box input {
+  color: #ccc;
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  padding: 10px;
+  appearance: textfield;
+  outline: none;
+  transition: .3s ease;
+  border-bottom: 1px solid #fff;
+  border-radius: 5px 5px 0 0 ;
+}
+
+.edit-alert-box input:hover{
+  background-color: #2c2c2c8c;
+}
+
+.edit-alert-box input:focus {
+  background-color: #2c2c2c8c;
+}
+
+.edit-alert-box .btn button{
+  background-color: transparent;
+  color: rgb(40, 132, 224);
+  border: none;
+  align-self: self-end;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: .3s ease;
+  padding: 10px;
+  width: 100px;
+}
+
+.edit-alert-box .btn button:hover{
+  background-color: #2c2c2c8c;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    height: auto;
+    top: 10%;
+    transform: translateX(-50%);
+  }
+
+  .searchbar{
+    margin-bottom: 10px;
+  }
+
+  .searchbar input {
+    font-size: 1em;
+  }
+
+  .actions{
+    justify-content: flex-end;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tr {
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    padding: 10px;
+  }
+
+  td {
+    text-align: right;
+    position: relative;
+    padding-left: 50%;
+  }
+
+  td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 15px;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: bold;
+  }
+}
+
+  /* Toast Notification */
+#toast-container {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  pointer-events: none;
+  flex-direction: column-reverse;
+  gap: 10px;
+  z-index: 9999;
+}
+
+.toast {
+  min-width: 250px;
+  color: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.5s ease;
+}
+
+.toast.success {
+  background-color: #28a745;
+}
+
+.toast.error {
+  background-color: #ff0000;
+}
+
+@media (min-width: 360px) and (max-width: 768px){
+  .alert-box, .confirm-alert-box, .dialog-box, .edit-alert-box {
+    width: 300px;
+  }
+}
+</style>
+</body>
+</html>
