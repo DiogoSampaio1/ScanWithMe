@@ -73,6 +73,7 @@ O site tem como principal funcionalidade a leitura de QRCodes e Códigos de Barr
 ## Em falta
 
 - Colocar o site no seu todo em vue, para que o token seja corretamente expirado com o tempo(vuex)
-- Colocar a opção de login pelo fénix 
+- Colocar os restantes jwt_required em cada ação, apenas está inserida no GET dos protudos para testes
+- Colocar a opção de login pelo fénix
 
 > **PS:** Para a câmara no telemóvel funcionar é necessário colocar https.
