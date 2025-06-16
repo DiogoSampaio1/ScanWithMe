@@ -68,6 +68,11 @@ O site tem como principal funcionalidade a leitura de QRCodes e Códigos de Barr
 
 - Processo de scan múltiplo para o PC  
 - SearchBar com mais opções  
-- Colocar itens máximo por páginas  
+- Colocar um máximo de itens por página  
+
+## Em falta
+
+- Colocar o site no seu todo em vue, para que o token seja corretamente expirado com o tempo(vuex)
+- Colocar a opção de login pelo fénix 
 
 > **PS:** Para a câmara no telemóvel funcionar é necessário colocar https.
